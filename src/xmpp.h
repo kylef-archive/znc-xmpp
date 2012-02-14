@@ -23,10 +23,10 @@ public:
 	vector<CXMPPClient*>& GetClients() { return m_vClients; };
 	CXMPPClient* Client(CUser& User, CString sResource) const;
 
-	CString GetXMPPName() const;
+	CString GetServerName() const { return m_sServerName; }
 
 protected:
 	vector<CXMPPClient*> m_vClients;
-	CString m_sXMPPName;
+	CString m_sServerName;
 };
 

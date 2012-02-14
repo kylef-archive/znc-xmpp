@@ -11,6 +11,11 @@
 #include "Listener.h"
 
 bool CXMPPModule::OnLoad(const CString& sArgs, CString& sMessage) {
+	m_sServerName = sArgs.Token(1);
+	if (m_sServerName.empty()) {
+		m_sServerName = "localhost";
+	}
+
 	CXMPPListener *pClient = new CXMPPListener(this);
 	pClient->Listen(5222, false);
 

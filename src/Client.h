@@ -21,6 +21,7 @@ public:
 
 	CUser* GetUser() const { return m_pUser; }
 	CString GetResource() const { return m_sResource; }
+	CString GetServerName() const;
 
 	virtual void ReadData(const char *data, size_t len);
 	virtual void ReadLine(const CString& sData);

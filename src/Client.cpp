@@ -89,6 +89,9 @@ CXMPPClient::CXMPPClient(CModule *pModule) : CSocket(pModule) {
 	m_uiDepth = 0;
 	m_pStanza = NULL;
 
+	m_pUser = NULL;
+	m_sResource = "";
+
 	DisableReadLine();
 
 	memset(&m_xmlHandlers, 0, sizeof(xmlSAXHandler));
@@ -120,6 +123,10 @@ CXMPPClient::~CXMPPClient() {
 	}
 }
 
+CString CXMPPClient::GetServerName() const {
+	return ((CXMPPModule*)m_pModule)->GetServerName();
+}
+
 void CXMPPClient::ReadData(const char *data, size_t len) {
 	xmlParseChunk(m_xmlContext, data, len, 0);
 }
@@ -138,13 +145,24 @@ bool CXMPPClient::Write(const CString &sString) {
 
 void CXMPPClient::StreamStart(CXMPPStanza &Stanza) {
 	Write("<?xml version='1.0' ?>");
-	CString sJid = "bla";
-	Write("<stream:stream from='xmpp.znc.in' to='" + sJid + "' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'>");
+	Write("<stream:stream from='" + GetServerName() + "' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'>");
+
+	if (!Stanza.GetAttribute("to").Equals(GetServerName())) {
+		CXMPPStanza error("stream:error");
+		CXMPPStanza& host = error.NewChild("host-unknown", "urn:ietf:params:xml:ns:xmpp-streams");
+		CXMPPStanza& text = host.NewChild("text", "urn:ietf:params:xml:ns:xmpp-streams");
+		text.NewChild().SetText("This server does not serve " + Stanza.GetAttribute("to"));
+		Write(error);
+
+		Write("</stream:stream>");
+		Close(Csock::CLT_AFTERWRITE);
+		return;
+	}
 
 	CXMPPStanza features("stream:features");
 
 	if (m_pUser) {
-		//features.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
+		features.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
 	} else {
 		CXMPPStanza& mechanisms = features.NewChild("mechanisms", "urn:ietf:params:xml:ns:xmpp-sasl");
 
@@ -254,7 +272,7 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 				iq.SetAttribute("type", "result");
 				CXMPPStanza& bindStanza = iq.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
 				CXMPPStanza& jidStanza = bindStanza.NewChild("jid");
-				jidStanza.NewChild().SetText(m_pUser->GetUserName() + "@localhost/" + m_sResource);
+				jidStanza.NewChild().SetText(m_pUser->GetUserName() + "@" + GetServerName() + "/" + m_sResource);
 				Write(iq);
 				return;
 			}
