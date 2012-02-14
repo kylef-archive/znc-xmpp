@@ -6,58 +6,62 @@
  * by the Free Software Foundation.
  */
 
-#include <znc/Modules.h>
-
+#include "xmpp.h"
 #include "Client.h"
 #include "Listener.h"
 
-class CXMPPModule : public CModule {
-public:
-	MODCONSTRUCTOR(CXMPPModule) {};
+bool CXMPPModule::OnLoad(const CString& sArgs, CString& sMessage) {
+	CXMPPListener *pClient = new CXMPPListener(this);
+	pClient->Listen(5222, false);
 
-	virtual bool OnLoad(const CString& sArgs, CString& sMessage) {
-		CXMPPListener *pClient = new CXMPPListener(this);
-		pClient->Listen(5222, false);
+	return true;
+}
 
-		return true;
-	}
+CModule::EModRet CXMPPModule::OnDeleteUser(CUser& User) {
+	// Delete clients
+	vector<CXMPPClient*>::iterator it;
+	for (it = m_vClients.begin(); it != m_vClients.end();) {
+		CXMPPClient *pClient = *it;
 
-	virtual EModRet OnDeleteUser(CUser& User) {
-		// Delete clients
-		vector<CXMPPClient*>::iterator it;
-		for (it = m_vClients.begin(); it != m_vClients.end();) {
-			CXMPPClient *pClient = *it;
-
-			if (pClient->GetUser() == &User) {
-				CZNC::Get().GetManager().DelSockByAddr(pClient);
-				it = m_vClients.erase(it);
-			} else {
-				++it;
-			}
-		}
-
-		return CONTINUE;
-	}
-
-	void ClientConnected(CXMPPClient &Client) {
-		m_vClients.push_back(&Client);
-	}
-
-	void ClientDisconnected(CXMPPClient &Client) {
-		vector<CXMPPClient*>::iterator it;
-		for (it = m_vClients.begin(); it != m_vClients.end(); ++it) {
-			CXMPPClient *pClient = *it;
-
-			if (pClient == &Client) {
-				m_vClients.erase(it);
-				break;
-			}
+		if (pClient->GetUser() == &User) {
+			CZNC::Get().GetManager().DelSockByAddr(pClient);
+			it = m_vClients.erase(it);
+		} else {
+			++it;
 		}
 	}
 
-protected:
-	vector<CXMPPClient*> m_vClients;
-};
+	return CONTINUE;
+}
+
+void CXMPPModule::ClientConnected(CXMPPClient &Client) {
+	m_vClients.push_back(&Client);
+}
+
+void CXMPPModule::ClientDisconnected(CXMPPClient &Client) {
+	vector<CXMPPClient*>::iterator it;
+	for (it = m_vClients.begin(); it != m_vClients.end(); ++it) {
+		CXMPPClient *pClient = *it;
+
+		if (pClient == &Client) {
+			m_vClients.erase(it);
+			break;
+		}
+	}
+}
+
+CXMPPClient* CXMPPModule::Client(CUser& User, CString sResource) const {
+	vector<CXMPPClient*>::const_iterator it;
+	for (it = m_vClients.begin(); it != m_vClients.end(); ++it) {
+		CXMPPClient *pClient = *it;
+
+		if (pClient->GetUser() == &User && sResource.Equals(pClient->GetResource())) {
+			return pClient;
+		}
+	}
+
+	return NULL;
+}
 
 GLOBALMODULEDEFS(CXMPPModule, "XMPP support for ZNC");
 

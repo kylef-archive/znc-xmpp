@@ -7,6 +7,7 @@
  */
 
 #include "Client.h"
+#include "xmpp.h"
 
 /* libxml2 handlers */
 
@@ -23,7 +24,9 @@ static void _start_element(void *userdata, const xmlChar *name, const xmlChar **
 
 		CXMPPStanza Stanza;
 		Stanza.SetName("stream:stream");
-		Stanza.SetAttributes(attrs);
+		if (attrs) {
+			Stanza.SetAttributes(attrs);
+		}
 
 		pClient->StreamStart(Stanza);
 	} else if (!pClient->GetStanza()) {
@@ -40,7 +43,9 @@ static void _start_element(void *userdata, const xmlChar *name, const xmlChar **
 		CXMPPStanza& child = pClient->GetStanza()->NewChild((char *)name);
 		pClient->SetStanza(&child);
 
-		child.SetAttributes(attrs);
+		if (attrs) {
+			child.SetAttributes(attrs);
+		}
 	}
 
 	DEBUG("libxml (" << pClient->GetDepth() << ") start_element: [" << name << "]");
@@ -92,6 +97,10 @@ CXMPPClient::CXMPPClient(CModule *pModule) : CSocket(pModule) {
 	m_xmlHandlers.characters = _characters;
 
 	m_xmlContext = xmlCreatePushParserCtxt(&m_xmlHandlers, this, NULL, 0, NULL);
+
+	if (m_pModule) {
+		((CXMPPModule*)m_pModule)->ClientConnected(*this);
+	}
 }
 
 CXMPPClient::~CXMPPClient() {
@@ -104,6 +113,10 @@ CXMPPClient::~CXMPPClient() {
 		}
 
 		delete m_pStanza;
+	}
+
+	if (m_pModule) {
+		((CXMPPModule*)m_pModule)->ClientDisconnected(*this);
 	}
 }
 
@@ -180,6 +193,71 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 			CXMPPStanza failure("failure", "urn:ietf:params:xml:ns:xmpp-sasl");
 			failure.NewChild("invalid-mechanism");
 			Write(failure);
+		}
+	}
+
+	if (!m_pUser) {
+		return; /* the following stanzas require auth */
+	}
+
+	if (Stanza.GetName().Equals("iq")) {
+		if (Stanza.GetAttribute("type").Equals("set")) {
+			CXMPPStanza *bindStanza = Stanza.GetChildByName("bind");
+
+			if (bindStanza) {
+				bool bResource = false;
+				CString sResource;
+
+				CXMPPStanza *pResourceStanza = bindStanza->GetChildByName("resource");
+
+				if (pResourceStanza) {
+					CXMPPStanza *pStanza = pResourceStanza->GetTextChild();
+					if (pStanza) {
+						bResource = true;
+						sResource = pStanza->GetText();
+					}
+				}
+
+				if (!bResource) {
+					// Generate a resource
+					sResource = CString::RandomString(32).SHA256();
+				}
+
+				CXMPPStanza iq("iq");
+				if (Stanza.HasAttribute("id")) {
+					iq.SetAttribute("id", Stanza.GetAttribute("id"));
+				}
+
+				if (sResource.empty()) {
+					/* Invalid resource*/
+					iq.SetAttribute("type", "error");
+					CXMPPStanza& error = iq.NewChild("error");
+					error.SetAttribute("type", "modify");
+					error.NewChild("bad-request", "urn:ietf:params:xml:ns:xmpp-stanzas");
+					Write(iq);
+					return;
+				}
+
+				if (((CXMPPModule*)m_pModule)->Client(*m_pUser, sResource)) {
+					/* We already have a client with this resource */
+					iq.SetAttribute("type", "error");
+					CXMPPStanza& error = iq.NewChild("error");
+					error.SetAttribute("type", "modify");
+					error.NewChild("conflict", "urn:ietf:params:xml:ns:xmpp-stanzas");
+					Write(iq);
+					return;
+				}
+
+				/* The resource is all good, lets use it */
+				m_sResource = sResource;
+
+				iq.SetAttribute("type", "result");
+				CXMPPStanza& bindStanza = iq.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
+				CXMPPStanza& jidStanza = bindStanza.NewChild("jid");
+				jidStanza.NewChild().SetText(m_pUser->GetUserName() + "@localhost/" + m_sResource);
+				Write(iq);
+				return;
+			}
 		}
 	}
 

@@ -41,8 +41,10 @@ public:
 
 	/* Get the first child of stanza with name. */
 	CXMPPStanza* GetChildByName(CString sName) const;
+	CXMPPStanza* GetTextChild() const;
 
 	CString GetAttribute(CString sName) const;
+	bool HasAttribute(CString sName) const;
 	void SetAttribute(CString sName, CString sValue);
 
 	void SetAttributes(const xmlChar **attrs);

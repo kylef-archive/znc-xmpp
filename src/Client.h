@@ -20,6 +20,7 @@ public:
 	virtual ~CXMPPClient();
 
 	CUser* GetUser() const { return m_pUser; }
+	CString GetResource() const { return m_sResource; }
 
 	virtual void ReadData(const char *data, size_t len);
 	virtual void ReadLine(const CString& sData);
@@ -47,5 +48,7 @@ protected:
 	CXMPPStanza     *m_pStanza;
 
 	CUser *m_pUser;
+
+	CString m_sResource;
 };
 

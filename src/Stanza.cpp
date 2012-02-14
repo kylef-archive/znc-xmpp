@@ -80,6 +80,7 @@ CString CXMPPStanza::GetName() const {
 
 bool CXMPPStanza::SetText(CString sText) {
 	if (!IsTag()) {
+		m_eType = XMPP_STANZA_TEXT;
 		m_sData = sText;
 		return true;
 	}
@@ -119,6 +120,21 @@ CString CXMPPStanza::GetAttribute(CString sName) const {
 	return it->second;
 }
 
+bool CXMPPStanza::HasAttribute(CString sName) const {
+	if (!IsTag()) {
+		return false;
+	}
+
+	MCString::const_iterator it = m_msAttributes.find(sName);
+
+	if (it == m_msAttributes.end()) {
+		return false;
+	}
+
+	return true;
+
+}
+
 void CXMPPStanza::SetAttribute(CString sName, CString sValue) {
 	if (!IsTag()) {
 		return;
@@ -145,6 +161,19 @@ CXMPPStanza* CXMPPStanza::GetChildByName(CString sName) const {
 		CXMPPStanza *pChild = *it;
 
 		if (pChild->GetName().Equals(sName)) {
+			return pChild;
+		}
+	}
+
+	return NULL;
+}
+
+CXMPPStanza* CXMPPStanza::GetTextChild() const {
+	vector<CXMPPStanza*>::const_iterator it;
+	for (it = m_vChildren.begin(); it != m_vChildren.end(); ++it) {
+		CXMPPStanza *pChild = *it;
+
+		if (pChild->IsText()) {
 			return pChild;
 		}
 	}
