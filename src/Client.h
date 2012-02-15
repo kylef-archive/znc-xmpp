@@ -24,7 +24,6 @@ public:
 	CString GetServerName() const;
 
 	virtual void ReadData(const char *data, size_t len);
-	virtual void ReadLine(const CString& sData);
 
 	bool Write(const CXMPPStanza &Stanza);
 	bool Write(const CString &sString);
@@ -47,6 +46,8 @@ protected:
 
 	unsigned int     m_uiDepth;
 	CXMPPStanza     *m_pStanza;
+
+	bool             m_bResetParser;
 
 	CUser *m_pUser;
 

@@ -94,12 +94,13 @@ CXMPPClient::CXMPPClient(CModule *pModule) : CSocket(pModule) {
 
 	DisableReadLine();
 
+	m_xmlContext = NULL;
+	m_bResetParser = true;
+
 	memset(&m_xmlHandlers, 0, sizeof(xmlSAXHandler));
 	m_xmlHandlers.startElement = _start_element;
 	m_xmlHandlers.endElement = _end_element;
 	m_xmlHandlers.characters = _characters;
-
-	m_xmlContext = xmlCreatePushParserCtxt(&m_xmlHandlers, this, NULL, 0, NULL);
 
 	if (m_pModule) {
 		((CXMPPModule*)m_pModule)->ClientConnected(*this);
@@ -128,11 +129,19 @@ CString CXMPPClient::GetServerName() const {
 }
 
 void CXMPPClient::ReadData(const char *data, size_t len) {
-	xmlParseChunk(m_xmlContext, data, len, 0);
-}
+	if (m_bResetParser) {
+		m_uiDepth = 0;
 
-void CXMPPClient::ReadLine(const CString& sData) {
-	xmlParseChunk(m_xmlContext, sData.c_str(), sData.size(), 0);
+		if (m_xmlContext) {
+			xmlFreeParserCtxt(m_xmlContext);
+		}
+
+		m_xmlContext = xmlCreatePushParserCtxt(&m_xmlHandlers, this, NULL, 0, NULL);
+
+		m_bResetParser = false;
+	}
+
+	xmlParseChunk(m_xmlContext, data, len, 0);
 }
 
 bool CXMPPClient::Write(const CXMPPStanza &Stanza) {
@@ -197,7 +206,7 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 				DEBUG("XMPPClient SASL::PLAIN for [" << sUsername << "] success.");
 
 				/* Restart the stream */
-				m_uiDepth = 0;
+				m_bResetParser = true;
 
 				return;
 			}
