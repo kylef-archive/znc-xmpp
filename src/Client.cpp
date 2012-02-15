@@ -195,26 +195,40 @@ void CXMPPClient::StreamEnd() {
 void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 	if (Stanza.GetName().Equals("auth")) {
 		if (Stanza.GetAttribute("mechanism").Equals("plain")) {
-			CString sSASL = Stanza.GetText().Base64Decode_n();
+			CString sSASL;
+			CXMPPStanza *pStanza = Stanza.GetTextChild();
 
-			//CString sUsername = sSASL.Token(1, false, "\0", true);
-			//CString sPassword = sSASL.Token(2, false, "\0", true);
+			if (pStanza)
+				sSASL = pStanza->GetText().Base64Decode_n();
 
-			CString sUsername = "kylef";
-			CString sPassword = "pass";
+			const char *sasl = sSASL.c_str();
+			unsigned int y = 0;
+			for (unsigned int x = 0; x < sSASL.size(); x++) {
+				if (sasl[x] == 0) {
+					y++;
+				}
+			}
 
-			CUser *pUser = CZNC::Get().FindUser(sUsername);
+			CString sUsername = "unknown";
 
-			if (pUser && pUser->CheckPass(sPassword)) {
-				Write(CXMPPStanza("success", "urn:ietf:params:xml:ns:xmpp-sasl"));
+			if (y > 1) {
+				const char *username = &sasl[strlen(sasl) + 1];
+				const char *password = &username[strlen(username) + 1];
+				sUsername = username;
 
-				m_pUser = pUser;
-				DEBUG("XMPPClient SASL::PLAIN for [" << sUsername << "] success.");
+				CUser *pUser = CZNC::Get().FindUser(sUsername);
 
-				/* Restart the stream */
-				m_bResetParser = true;
+				if (pUser && pUser->CheckPass(password)) {
+					Write(CXMPPStanza("success", "urn:ietf:params:xml:ns:xmpp-sasl"));
 
-				return;
+					m_pUser = pUser;
+					DEBUG("XMPPClient SASL::PLAIN for [" << sUsername << "] success.");
+
+					/* Restart the stream */
+					m_bResetParser = true;
+
+					return;
+				}
 			}
 
 			DEBUG("XMPPClient SASL::PLAIN for [" << sUsername << "] failed.");
