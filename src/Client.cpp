@@ -170,9 +170,15 @@ void CXMPPClient::StreamStart(CXMPPStanza &Stanza) {
 
 	CXMPPStanza features("stream:features");
 
+#ifdef HAVE_LIBSSL
+	if (!GetSSL()) {
+		features.NewChild("starttls", "urn:ietf:params:xml:ns:xmpp-tls");
+	}
+#endif
+
 	if (m_pUser) {
 		features.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
-	} else {
+	} else if (GetSSL() || true) { /* Remove true to force TLS before auth */
 		CXMPPStanza& mechanisms = features.NewChild("mechanisms", "urn:ietf:params:xml:ns:xmpp-sasl");
 
 		CXMPPStanza& plain = mechanisms.NewChild("mechanism");
@@ -221,6 +227,24 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 			failure.NewChild("invalid-mechanism");
 			Write(failure);
 		}
+	} else if (Stanza.GetName().Equals("starttls")) {
+#ifdef HAVE_LIBSSL
+		CString sPemFile = CZNC::Get().GetPemLocation();
+
+		if (!sPemFile.empty() && access(sPemFile.c_str(), R_OK) == 0 && !GetSSL()) {
+			Write(CXMPPStanza("proceed", "urn:ietf:params:xml:ns:xmpp-tls"));
+
+			/* Restart the stream */
+			m_bResetParser = true;
+
+			SetPemLocation(sPemFile);
+			StartTLS();
+
+			return;
+		}
+#endif
+
+		Write(CXMPPStanza("failure", "urn:ietf:params:xml:ns:xmpp-tls"));
 	}
 
 	if (!m_pUser) {
