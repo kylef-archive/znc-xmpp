@@ -68,5 +68,16 @@ CXMPPClient* CXMPPModule::Client(CUser& User, CString sResource) const {
 	return NULL;
 }
 
+bool CXMPPModule::IsTLSAvailible() const {
+#ifdef HAVE_LIBSS
+	CString sPemFile = CZNC::Get().GetPemLocation();
+	if (!sPemFile.empty() && access(sPemFile.c_str(), R_OK) == 0) {
+		return true;
+	}
+#endif
+
+	return false;
+}
+
 GLOBALMODULEDEFS(CXMPPModule, "XMPP support for ZNC");
 

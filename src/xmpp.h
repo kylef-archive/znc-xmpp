@@ -24,6 +24,7 @@ public:
 	CXMPPClient* Client(CUser& User, CString sResource) const;
 
 	CString GetServerName() const { return m_sServerName; }
+	bool IsTLSAvailible() const;
 
 protected:
 	vector<CXMPPClient*> m_vClients;
