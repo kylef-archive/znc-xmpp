@@ -266,6 +266,12 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 	}
 
 	if (Stanza.GetName().Equals("iq")) {
+		CXMPPStanza iq("iq");
+
+		if (Stanza.HasAttribute("id")) {
+			iq.SetAttribute("id", Stanza.GetAttribute("id"));
+		}
+
 		if (Stanza.GetAttribute("type").Equals("set")) {
 			CXMPPStanza *bindStanza = Stanza.GetChildByName("bind");
 
@@ -286,11 +292,6 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 				if (!bResource) {
 					// Generate a resource
 					sResource = CString::RandomString(32).SHA256();
-				}
-
-				CXMPPStanza iq("iq");
-				if (Stanza.HasAttribute("id")) {
-					iq.SetAttribute("id", Stanza.GetAttribute("id"));
 				}
 
 				if (sResource.empty()) {
@@ -324,6 +325,14 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 				return;
 			}
 		}
+
+		iq.SetAttribute("type", "error");
+		iq.NewChild("bad-request");
+
+		DEBUG("XMPPClient unsupported iq type [" + iq.GetAttribute("type") + "]");
+
+		Write(iq);
+		return;
 	}
 
 	DEBUG("XMPPClient unsupported stanza [" << Stanza.GetName() << "]");
