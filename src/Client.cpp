@@ -130,6 +130,22 @@ CString CXMPPClient::GetServerName() const {
 	return ((CXMPPModule*)m_pModule)->GetServerName();
 }
 
+CString CXMPPClient::GetJID() const {
+	CString sResult;
+
+	if (m_pUser) {
+		sResult = m_pUser->GetUserName() + "@";
+	}
+
+	sResult += GetServerName();
+
+	if (!m_sResource.empty()) {
+		sResult += "/" + m_sResource;
+	}
+
+	return sResult;
+}
+
 void CXMPPClient::ReadData(const char *data, size_t len) {
 	if (m_bResetParser) {
 		m_uiDepth = 0;
@@ -338,6 +354,30 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 		}
 
 		Write(iq);
+		return;
+	} else if (Stanza.GetName().Equals("message")) {
+		CXMPPStanza message("message");
+		message.SetAttribute("type", "error");
+
+		if (Stanza.HasAttribute("id")) {
+			message.SetAttribute("id", Stanza.GetAttribute("id"));
+		}
+
+		if (Stanza.HasAttribute("to")) {
+			message.SetAttribute("from", Stanza.GetAttribute("to"));
+		}
+
+		if (Stanza.HasAttribute("from")) {
+			message.SetAttribute("to", Stanza.GetAttribute("from"));
+		} else {
+			message.SetAttribute("to", GetJID());
+		}
+
+		CXMPPStanza& error = message.NewChild("error");
+		error.SetAttribute("type", "cancel");
+		CXMPPStanza& unavailable = error.NewChild("service-unavailable", "urn:ietf:params:xml:ns:xmpp-stanzas");
+
+		Write(message);
 		return;
 	}
 
