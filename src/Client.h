@@ -26,7 +26,8 @@ public:
 
 	virtual void ReadData(const char *data, size_t len);
 
-	bool Write(const CXMPPStanza &Stanza);
+	bool Write(const CXMPPStanza& Stanza);
+	bool Write(CXMPPStanza& Stanza, const CXMPPStanza *pStanza = NULL);
 	bool Write(const CString &sString);
 
 	unsigned int GetDepth() const { return m_uiDepth; }

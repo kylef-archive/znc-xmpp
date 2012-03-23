@@ -162,6 +162,15 @@ void CXMPPClient::ReadData(const char *data, size_t len) {
 	xmlParseChunk(m_xmlContext, data, len, 0);
 }
 
+bool CXMPPClient::Write(CXMPPStanza &Stanza, const CXMPPStanza *pStanza) {
+	Stanza.SetAttribute("to", GetJID());
+
+	if (pStanza && pStanza->HasAttribute("id")) {
+		Stanza.SetAttribute("id", pStanza->GetAttribute("id"));
+	}
+	return Write(Stanza.ToString());
+}
+
 bool CXMPPClient::Write(const CXMPPStanza &Stanza) {
 	return Write(Stanza.ToString());
 }
@@ -286,10 +295,6 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 	if (Stanza.GetName().Equals("iq")) {
 		CXMPPStanza iq("iq");
 
-		if (Stanza.HasAttribute("id")) {
-			iq.SetAttribute("id", Stanza.GetAttribute("id"));
-		}
-
 		if (Stanza.GetAttribute("type").Equals("set")) {
 			CXMPPStanza *bindStanza = Stanza.GetChildByName("bind");
 
@@ -318,7 +323,7 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 					CXMPPStanza& error = iq.NewChild("error");
 					error.SetAttribute("type", "modify");
 					error.NewChild("bad-request", "urn:ietf:params:xml:ns:xmpp-stanzas");
-					Write(iq);
+					Write(iq, &Stanza);
 					return;
 				}
 
@@ -328,7 +333,7 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 					CXMPPStanza& error = iq.NewChild("error");
 					error.SetAttribute("type", "modify");
 					error.NewChild("conflict", "urn:ietf:params:xml:ns:xmpp-stanzas");
-					Write(iq);
+					Write(iq, &Stanza);
 					return;
 				}
 
@@ -338,7 +343,7 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 				iq.SetAttribute("type", "result");
 				CXMPPStanza& bindStanza = iq.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
 				CXMPPStanza& jidStanza = bindStanza.NewChild("jid");
-				jidStanza.NewChild().SetText(m_pUser->GetUserName() + "@" + GetServerName() + "/" + m_sResource);
+				jidStanza.NewChild().SetText(GetJID());
 #ifdef SUPPORT_RFC_3921
 			} else if (Stanza.GetChildByName("session")) {
 				iq.SetAttribute("type", "result");
@@ -353,31 +358,21 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 			DEBUG("XMPPClient unsupported iq type [" + Stanza.GetAttribute("type") + "]");
 		}
 
-		Write(iq);
+		Write(iq, &Stanza);
 		return;
 	} else if (Stanza.GetName().Equals("message")) {
 		CXMPPStanza message("message");
 		message.SetAttribute("type", "error");
 
-		if (Stanza.HasAttribute("id")) {
-			message.SetAttribute("id", Stanza.GetAttribute("id"));
-		}
-
 		if (Stanza.HasAttribute("to")) {
 			message.SetAttribute("from", Stanza.GetAttribute("to"));
-		}
-
-		if (Stanza.HasAttribute("from")) {
-			message.SetAttribute("to", Stanza.GetAttribute("from"));
-		} else {
-			message.SetAttribute("to", GetJID());
 		}
 
 		CXMPPStanza& error = message.NewChild("error");
 		error.SetAttribute("type", "cancel");
 		CXMPPStanza& unavailable = error.NewChild("service-unavailable", "urn:ietf:params:xml:ns:xmpp-stanzas");
 
-		Write(message);
+		Write(message, &Stanza);
 		return;
 	}
 
