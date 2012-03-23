@@ -9,6 +9,8 @@
 #include "Client.h"
 #include "xmpp.h"
 
+#define SUPPORT_RFC_3921
+
 /* libxml2 handlers */
 
 static void _start_element(void *userdata, const xmlChar *name, const xmlChar **attrs) {
@@ -321,15 +323,19 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 				CXMPPStanza& bindStanza = iq.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
 				CXMPPStanza& jidStanza = bindStanza.NewChild("jid");
 				jidStanza.NewChild().SetText(m_pUser->GetUserName() + "@" + GetServerName() + "/" + m_sResource);
-				Write(iq);
-				return;
+#ifdef SUPPORT_RFC_3921
+			} else if (Stanza.GetChildByName("session")) {
+				iq.SetAttribute("type", "result");
 			}
+#endif
 		}
 
-		iq.SetAttribute("type", "error");
-		iq.NewChild("bad-request");
+		if (!iq.HasAttribute("type")) {
+			iq.SetAttribute("type", "error");
+			iq.NewChild("bad-request");
 
-		DEBUG("XMPPClient unsupported iq type [" + iq.GetAttribute("type") + "]");
+			DEBUG("XMPPClient unsupported iq type [" + Stanza.GetAttribute("type") + "]");
+		}
 
 		Write(iq);
 		return;
