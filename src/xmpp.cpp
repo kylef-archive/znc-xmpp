@@ -68,6 +68,40 @@ CXMPPClient* CXMPPModule::Client(CUser& User, CString sResource) const {
 	return NULL;
 }
 
+CXMPPClient* CXMPPModule::Client(const CString& sJID, bool bAcceptNegative) const {
+	CString sUser = sJID.Token(0, false, "@");
+	CString sDomain = sJID.Token(1, false, "@");
+	CString sResource = sDomain.Token(1, false, "/");
+	sDomain = sDomain.Token(0, false, "/");
+
+	if (!sDomain.Equals(GetServerName())) {
+		return NULL;
+	}
+
+	CXMPPClient *pCurrent = NULL;
+
+	vector<CXMPPClient*>::const_iterator it;
+	for (it = m_vClients.begin(); it != m_vClients.end(); ++it) {
+		CXMPPClient *pClient = *it;
+
+		if (pClient->GetUser() && pClient->GetUser()->GetUserName().Equals(sUser)) {
+			if (!sResource.empty() && sResource.Equals(pClient->GetResource())) {
+				return pClient;
+			}
+
+			if (!pCurrent || (pClient->GetPriority() > pCurrent->GetPriority())) {
+				pCurrent = pClient;
+			}
+		}
+	}
+
+	if (!bAcceptNegative && pCurrent && (pCurrent->GetPriority() < 0)) {
+		return NULL;
+	}
+
+	return pCurrent;
+}
+
 bool CXMPPModule::IsTLSAvailible() const {
 #ifdef HAVE_LIBSS
 	CString sPemFile = CZNC::Get().GetPemLocation();

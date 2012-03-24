@@ -92,7 +92,7 @@ CXMPPClient::CXMPPClient(CModule *pModule) : CSocket(pModule) {
 	m_pStanza = NULL;
 
 	m_pUser = NULL;
-	m_sResource = "";
+	m_uiPriority = 0;
 
 	DisableReadLine();
 
@@ -374,6 +374,33 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 		CXMPPStanza& unavailable = error.NewChild("service-unavailable", "urn:ietf:params:xml:ns:xmpp-stanzas");
 
 		Write(message, &Stanza);
+		return;
+	} else if (Stanza.GetName().Equals("presence")) {
+		CXMPPStanza presence("presence");
+
+		if (!Stanza.HasAttribute("type")) {
+			CXMPPStanza *pPriority = Stanza.GetChildByName("priority");
+
+			if (pPriority) {
+				CXMPPStanza *pPriorityText = pPriority->GetTextChild();
+				if (pPriorityText) {
+					int priority = pPriorityText->GetText().ToInt();
+
+					if ((priority >= -128) && (priority <= 127)) {
+						m_uiPriority = priority;
+					}
+				}
+
+				CXMPPStanza& priority = presence.NewChild("priority");
+				priority.NewChild().SetText(CString(GetPriority()));
+			}
+		} else if (Stanza.GetAttribute("type").Equals("unavailable")) {
+			presence.NewChild("unavailable");
+		} else if (Stanza.GetAttribute("type").Equals("available")) {
+			presence.NewChild("available");
+		}
+
+		Write(presence, &Stanza);
 		return;
 	}
 

@@ -21,6 +21,7 @@ public:
 
 	CUser* GetUser() const { return m_pUser; }
 	CString GetResource() const { return m_sResource; }
+	int GetPriority() const { return m_uiPriority; }
 	CString GetServerName() const;
 	CString GetJID() const;
 
@@ -54,5 +55,6 @@ protected:
 	CUser *m_pUser;
 
 	CString m_sResource;
+	int m_uiPriority;
 };
 
