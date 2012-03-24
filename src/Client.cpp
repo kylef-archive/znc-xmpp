@@ -199,13 +199,14 @@ void CXMPPClient::StreamStart(CXMPPStanza &Stanza) {
 
 #ifdef HAVE_LIBSSL
 	if (!GetSSL() && ((CXMPPModule*)m_pModule)->IsTLSAvailible()) {
-		features.NewChild("starttls", "urn:ietf:params:xml:ns:xmpp-tls");
+		CXMPPStanza &starttls = features.NewChild("starttls", "urn:ietf:params:xml:ns:xmpp-tls");
+		starttls.NewChild("required");
 	}
 #endif
 
 	if (m_pUser) {
 		features.NewChild("bind", "urn:ietf:params:xml:ns:xmpp-bind");
-	} else if (GetSSL() || true) { /* Remove true to force TLS before auth */
+	} else if (!((CXMPPModule*)m_pModule)->IsTLSAvailible() || GetSSL()) {
 		CXMPPStanza& mechanisms = features.NewChild("mechanisms", "urn:ietf:params:xml:ns:xmpp-sasl");
 
 		CXMPPStanza& plain = mechanisms.NewChild("mechanism");
