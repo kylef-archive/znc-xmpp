@@ -363,12 +363,30 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 		return;
 	} else if (Stanza.GetName().Equals("message")) {
 		CXMPPStanza message("message");
-		message.SetAttribute("type", "error");
 
 		if (Stanza.HasAttribute("to")) {
 			message.SetAttribute("from", Stanza.GetAttribute("to"));
 		}
 
+		if (Stanza.GetAttribute("type").Equals("chat")) {
+			CXMPPClient *pClient= (((CXMPPModule*)m_pModule)->Client(Stanza.GetAttribute("to")));
+			if (pClient) {
+				message.SetAttribute("type", "chat");
+
+				CXMPPStanza *pBody = Stanza.GetChildByName("body");
+				if (pBody) {
+					CXMPPStanza *pBodyText = pBody->GetTextChild();
+					if (pBodyText) {
+						message.NewChild("body").NewChild().SetText(pBodyText->GetText());
+					}
+				}
+
+				pClient->Write(message, &Stanza);
+				return;
+			}
+		}
+
+		message.SetAttribute("type", "error");
 		CXMPPStanza& error = message.NewChild("error");
 		error.SetAttribute("type", "cancel");
 		CXMPPStanza& unavailable = error.NewChild("service-unavailable", "urn:ietf:params:xml:ns:xmpp-stanzas");
