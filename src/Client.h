@@ -12,9 +12,9 @@
 #include <znc/User.h>
 #include <znc/znc.h>
 
-#include "Stanza.h"
+#include "Socket.h"
 
-class CXMPPClient : public CSocket {
+class CXMPPClient : public CXMPPSocket {
 public:
 	CXMPPClient(CModule *pModule);
 	virtual ~CXMPPClient();
@@ -22,36 +22,16 @@ public:
 	CUser* GetUser() const { return m_pUser; }
 	CString GetResource() const { return m_sResource; }
 	int GetPriority() const { return m_uiPriority; }
-	CString GetServerName() const;
 	CString GetJID() const;
 
-	virtual void ReadData(const char *data, size_t len);
-
+	bool Write(CString sData);
 	bool Write(const CXMPPStanza& Stanza);
 	bool Write(CXMPPStanza& Stanza, const CXMPPStanza *pStanza = NULL);
-	bool Write(const CString &sString);
 
-	unsigned int GetDepth() const { return m_uiDepth; }
-	void IncrementDepth() { m_uiDepth++; }
-	void DeincrementDepth() { m_uiDepth--; }
-
-	CXMPPStanza* GetStanza() const { return m_pStanza; }
-	void SetStanza(CXMPPStanza *pStanza) { m_pStanza = pStanza; }
-
-	void StreamStart(CXMPPStanza &Stanza);
-	void StreamEnd();
-
-	void ReceiveStanza(CXMPPStanza &Stanza);
+	virtual void StreamStart(CXMPPStanza &Stanza);
+	virtual void ReceiveStanza(CXMPPStanza &Stanza);
 
 protected:
-	xmlParserCtxtPtr m_xmlContext;
-	xmlSAXHandler    m_xmlHandlers;
-
-	unsigned int     m_uiDepth;
-	CXMPPStanza     *m_pStanza;
-
-	bool             m_bResetParser;
-
 	CUser *m_pUser;
 
 	CString m_sResource;

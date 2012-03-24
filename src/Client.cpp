@@ -11,123 +11,14 @@
 
 #define SUPPORT_RFC_3921
 
-/* libxml2 handlers */
-
-static void _start_element(void *userdata, const xmlChar *name, const xmlChar **attrs) {
-	CXMPPClient *pClient = (CXMPPClient*)userdata;
-
-	if (pClient->GetDepth() == 0) {
-		if (strcmp((char*)name, "stream:stream") != 0) {
-			DEBUG("XMPPClient: Client did not open valid stream. [" << name << "]");
-			pClient->Close(Csock::CLT_AFTERWRITE);
-			pClient->IncrementDepth(); /* Incrmement because otherwise end_element will be confused */
-			return;
-		}
-
-		CXMPPStanza Stanza;
-		Stanza.SetName("stream:stream");
-		if (attrs) {
-			Stanza.SetAttributes(attrs);
-		}
-
-		pClient->StreamStart(Stanza);
-	} else if (!pClient->GetStanza()) {
-		/* New top level stanza */
-		CXMPPStanza *pStanza = new CXMPPStanza((char *)name);
-
-		pClient->SetStanza(pStanza);
-
-		if (attrs) {
-			pStanza->SetAttributes(attrs);
-		}
-	} else {
-		/* New child stanza */
-		CXMPPStanza& child = pClient->GetStanza()->NewChild((char *)name);
-		pClient->SetStanza(&child);
-
-		if (attrs) {
-			child.SetAttributes(attrs);
-		}
-	}
-
-	DEBUG("libxml (" << pClient->GetDepth() << ") start_element: [" << name << "]");
-
-	pClient->IncrementDepth();
-}
-
-static void _end_element(void *userdata, const xmlChar *name) {
-	CXMPPClient *pClient = (CXMPPClient*)userdata;
-
-	pClient->DeincrementDepth();
-
-	if (pClient->GetDepth() == 0) {
-		pClient->StreamEnd();
-		DEBUG("XMPPClient: RECV </stream:stream>");
-		return;
-	} else if (pClient->GetStanza()->GetParent()) {
-		/* We are finishing a child stanza, so set current to parent */
-		pClient->SetStanza(pClient->GetStanza()->GetParent());
-	} else {
-		CXMPPStanza *pStanza = pClient->GetStanza();
-		pClient->SetStanza(NULL);
-
-		pClient->ReceiveStanza(*pStanza);
-		delete pStanza;
-	}
-
-	DEBUG("libxml (" << pClient->GetDepth() << ") end_element: [" << name << "]");
-}
-
-static void _characters(void *userdata, const xmlChar *chr, int len) {
-	CXMPPClient *pClient = (CXMPPClient*)userdata;
-
-	if (pClient->GetStanza()) {
-		CXMPPStanza &Stanza = pClient->GetStanza()->NewChild();
-		Stanza.SetText(CString((char*)chr, len));
-	}
-}
-
-CXMPPClient::CXMPPClient(CModule *pModule) : CSocket(pModule) {
-	m_uiDepth = 0;
-	m_pStanza = NULL;
-
+CXMPPClient::CXMPPClient(CModule *pModule) : CXMPPSocket(pModule) {
 	m_pUser = NULL;
-	m_uiPriority = 0;
 
-	DisableReadLine();
-
-	m_xmlContext = NULL;
-	m_bResetParser = true;
-
-	memset(&m_xmlHandlers, 0, sizeof(xmlSAXHandler));
-	m_xmlHandlers.startElement = _start_element;
-	m_xmlHandlers.endElement = _end_element;
-	m_xmlHandlers.characters = _characters;
-
-	if (m_pModule) {
-		((CXMPPModule*)m_pModule)->ClientConnected(*this);
-	}
+	GetModule()->ClientConnected(*this);
 }
 
 CXMPPClient::~CXMPPClient() {
-	xmlFreeParserCtxt(m_xmlContext);
-
-	/* We might have a leftover stanza */
-	if (m_pStanza) {
-		while (m_pStanza->GetParent()) {
-			m_pStanza = m_pStanza->GetParent();
-		}
-
-		delete m_pStanza;
-	}
-
-	if (m_pModule) {
-		((CXMPPModule*)m_pModule)->ClientDisconnected(*this);
-	}
-}
-
-CString CXMPPClient::GetServerName() const {
-	return ((CXMPPModule*)m_pModule)->GetServerName();
+	GetModule()->ClientDisconnected(*this);
 }
 
 CString CXMPPClient::GetJID() const {
@@ -146,20 +37,12 @@ CString CXMPPClient::GetJID() const {
 	return sResult;
 }
 
-void CXMPPClient::ReadData(const char *data, size_t len) {
-	if (m_bResetParser) {
-		m_uiDepth = 0;
+bool CXMPPClient::Write(CString sData) {
+	return CXMPPSocket::Write(sData);
+}
 
-		if (m_xmlContext) {
-			xmlFreeParserCtxt(m_xmlContext);
-		}
-
-		m_xmlContext = xmlCreatePushParserCtxt(&m_xmlHandlers, this, NULL, 0, NULL);
-
-		m_bResetParser = false;
-	}
-
-	xmlParseChunk(m_xmlContext, data, len, 0);
+bool CXMPPClient::Write(const CXMPPStanza& Stanza) {
+	return CXMPPSocket::Write(Stanza);
 }
 
 bool CXMPPClient::Write(CXMPPStanza &Stanza, const CXMPPStanza *pStanza) {
@@ -169,14 +52,6 @@ bool CXMPPClient::Write(CXMPPStanza &Stanza, const CXMPPStanza *pStanza) {
 		Stanza.SetAttribute("id", pStanza->GetAttribute("id"));
 	}
 	return Write(Stanza.ToString());
-}
-
-bool CXMPPClient::Write(const CXMPPStanza &Stanza) {
-	return Write(Stanza.ToString());
-}
-
-bool CXMPPClient::Write(const CString &sString) {
-	return CSocket::Write(sString);
 }
 
 void CXMPPClient::StreamStart(CXMPPStanza &Stanza) {
@@ -214,10 +89,6 @@ void CXMPPClient::StreamStart(CXMPPStanza &Stanza) {
 	}
 
 	Write(features);
-}
-
-void CXMPPClient::StreamEnd() {
-	Close(Csock::CLT_AFTERWRITE);
 }
 
 void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
