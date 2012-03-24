@@ -2,14 +2,26 @@ CXX := g++
 CXXFLAGS := -I/usr/include/libxml2 -fPIC
 LIBS := -lxml2
 
-all:
-	$(CXX) $(CXXFLAGS) -c src/Stanza.cpp -o src/Stanza.o
-	$(CXX) $(CXXFLAGS) -c src/Socket.cpp -o src/Socket.o
-	$(CXX) $(CXXFLAGS) -c src/Client.cpp -o src/Client.o
-	$(CXX) $(CXXFLAGS) -c src/Listener.cpp -o src/Listener.o
-	$(CXX) $(CXXFLAGS) -c src/xmpp.cpp -o src/xmpp.o
-	$(CXX) $(LIBS) -o xmpp.so src/xmpp.o src/Stanza.o src/Socket.o src/Client.o src/Listener.o -shared
+SRCS := Stanza.cpp Socket.cpp Client.cpp Listener.cpp xmpp.cpp
+SRCS := $(addprefix src/,$(SRCS))
+OBJS := $(patsubst %cpp,%o,$(SRCS))
+
+.PHONY: all clean
+
+all: xmpp.so
+	@echo "Module complete (xmpp.so)"
+
+xmpp.so: $(OBJS)
+	@echo Linking $@
+	@$(CXX) $(LIBS) -o $@ $(OBJS) -shared
+
+src/%.o: src/%.cpp Makefile
+	@mkdir -p .depend
+	@echo Building $@
+	@$(CXX) $(CXXFLAGS) -c $< -o $@ -MD -MF .depend/$*.dep -MT $@
 
 clean:
-	rm src/*.o
-	*.so
+	rm src/*.o *.so
+	rm -r .depend
+
+-include $(wildcard .depend/*.dep)
