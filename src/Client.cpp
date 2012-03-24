@@ -296,7 +296,11 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 	if (Stanza.GetName().Equals("iq")) {
 		CXMPPStanza iq("iq");
 
-		if (Stanza.GetAttribute("type").Equals("set")) {
+		if (Stanza.GetAttribute("type").Equals("get")) {
+			if (Stanza.GetChildByName("ping")) {
+				iq.SetAttribute("type", "result");
+			}
+		} else if (Stanza.GetAttribute("type").Equals("set")) {
 			CXMPPStanza *bindStanza = Stanza.GetChildByName("bind");
 
 			if (bindStanza) {
