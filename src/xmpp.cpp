@@ -69,13 +69,8 @@ CXMPPClient* CXMPPModule::Client(CUser& User, CString sResource) const {
 	return NULL;
 }
 
-CXMPPClient* CXMPPModule::Client(const CString& sJID, bool bAcceptNegative) const {
-	CString sUser = sJID.Token(0, false, "@");
-	CString sDomain = sJID.Token(1, false, "@");
-	CString sResource = sDomain.Token(1, false, "/");
-	sDomain = sDomain.Token(0, false, "/");
-
-	if (!sDomain.Equals(GetServerName())) {
+CXMPPClient* CXMPPModule::Client(const CXMPPJID& jid, bool bAcceptNegative) const {
+	if (!jid.IsLocal(*this)) {
 		return NULL;
 	}
 
@@ -85,8 +80,8 @@ CXMPPClient* CXMPPModule::Client(const CString& sJID, bool bAcceptNegative) cons
 	for (it = m_vClients.begin(); it != m_vClients.end(); ++it) {
 		CXMPPClient *pClient = *it;
 
-		if (pClient->GetUser() && pClient->GetUser()->GetUserName().Equals(sUser)) {
-			if (!sResource.empty() && sResource.Equals(pClient->GetResource())) {
+		if (pClient->GetUser() && pClient->GetUser()->GetUserName().Equals(jid.GetUser())) {
+			if (!jid.GetResource().empty() && jid.GetResource().Equals(pClient->GetResource())) {
 				return pClient;
 			}
 
@@ -115,22 +110,39 @@ bool CXMPPModule::IsTLSAvailible() const {
 }
 
 void CXMPPModule::SendStanza(CXMPPStanza &Stanza) {
-	CXMPPClient *pClient = Client(Stanza.GetAttribute("to"));
-	if (pClient) {
-		pClient->Write(Stanza);
-		return;
+	CXMPPJID to(Stanza.GetAttribute("to"));
+
+	if (to.IsLocal(*this)) {
+		CXMPPClient *pClient = Client(to);
+		if (pClient) {
+			pClient->Write(Stanza);
+			return;
+		}
 	}
 
-	pClient = Client(Stanza.GetAttribute("from"));
-	if (pClient) {
-		CXMPPStanza errorStanza(Stanza.GetName());
-		errorStanza.SetAttribute("to", Stanza.GetAttribute("from"));
-		errorStanza.SetAttribute("from", Stanza.GetAttribute("to"));
-		errorStanza.SetAttribute("type", "error");
-		CXMPPStanza& error = errorStanza.NewChild("error");
-		error.SetAttribute("type", "cancel");
-		CXMPPStanza& unavailable = error.NewChild("service-unavailable", "urn:ietf:params:xml:ns:xmpp-stanzas");
-		pClient->Write(errorStanza);
+	CXMPPJID from(Stanza.GetAttribute("from"));
+	if (from.IsLocal(*this)) {
+		CXMPPClient *pClient = Client(from);
+		if (pClient) {
+			CXMPPStanza errorStanza(Stanza.GetName());
+			errorStanza.SetAttribute("to", Stanza.GetAttribute("from"));
+			errorStanza.SetAttribute("from", Stanza.GetAttribute("to"));
+			errorStanza.SetAttribute("id", Stanza.GetAttribute("id"));
+			errorStanza.SetAttribute("type", "error");
+
+			CXMPPStanza& error = errorStanza.NewChild("error");
+			error.SetAttribute("type", "cancel");
+
+			if (to.IsLocal(*this)) {
+				CXMPPStanza& unavailable = error.NewChild("service-unavailable",
+											"urn:ietf:params:xml:ns:xmpp-stanzas");
+			} else {
+				CXMPPStanza &notFound = error.NewChild("remote-server-not-found",
+											"urn:ietf:params:xml:ns:xmpp-stanzas");
+			}
+
+			pClient->Write(errorStanza);
+		}
 	}
 }
 

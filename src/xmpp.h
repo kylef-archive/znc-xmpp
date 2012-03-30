@@ -7,6 +7,7 @@
  */
 
 #include <znc/Modules.h>
+#include "JID.h"
 
 class CXMPPClient;
 class CXMPPStanza;
@@ -23,7 +24,7 @@ public:
 
 	vector<CXMPPClient*>& GetClients() { return m_vClients; };
 	CXMPPClient* Client(CUser& User, CString sResource) const;
-	CXMPPClient* Client(const CString& sJID, bool bAcceptNegative = true) const;
+	CXMPPClient* Client(const CXMPPJID& jid, bool bAcceptNegative = true) const;
 
 	CString GetServerName() const { return m_sServerName; }
 	bool IsTLSAvailible() const;

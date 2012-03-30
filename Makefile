@@ -2,7 +2,7 @@ CXX := g++
 CXXFLAGS := -I/usr/include/libxml2 -fPIC
 LIBS := -lxml2
 
-SRCS := Stanza.cpp Socket.cpp Client.cpp Listener.cpp xmpp.cpp
+SRCS := Stanza.cpp Socket.cpp Client.cpp Listener.cpp JID.cpp xmpp.cpp
 SRCS := $(addprefix src/,$(SRCS))
 OBJS := $(patsubst %cpp,%o,$(SRCS))
 
