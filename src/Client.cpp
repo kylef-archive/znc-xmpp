@@ -164,6 +164,8 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 		return; /* the following stanzas require auth */
 	}
 
+	Stanza.SetAttribute("from", GetJID());
+
 	if (Stanza.GetName().Equals("iq")) {
 		CXMPPStanza iq("iq");
 
@@ -237,30 +239,13 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 		Write(iq, &Stanza);
 		return;
 	} else if (Stanza.GetName().Equals("message")) {
+		CXMPPClient *pClient = GetModule()->Client(Stanza.GetAttribute("to"));
+		if (pClient) {
+			pClient->Write(Stanza);
+			return;
+		}
+
 		CXMPPStanza message("message");
-
-		if (Stanza.HasAttribute("to")) {
-			message.SetAttribute("from", Stanza.GetAttribute("to"));
-		}
-
-		if (Stanza.GetAttribute("type").Equals("chat")) {
-			CXMPPClient *pClient= (((CXMPPModule*)m_pModule)->Client(Stanza.GetAttribute("to")));
-			if (pClient) {
-				message.SetAttribute("type", "chat");
-
-				CXMPPStanza *pBody = Stanza.GetChildByName("body");
-				if (pBody) {
-					CXMPPStanza *pBodyText = pBody->GetTextChild();
-					if (pBodyText) {
-						message.NewChild("body").NewChild().SetText(pBodyText->GetText());
-					}
-				}
-
-				pClient->Write(message, &Stanza);
-				return;
-			}
-		}
-
 		message.SetAttribute("type", "error");
 		CXMPPStanza& error = message.NewChild("error");
 		error.SetAttribute("type", "cancel");
