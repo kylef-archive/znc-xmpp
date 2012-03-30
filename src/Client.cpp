@@ -239,19 +239,7 @@ void CXMPPClient::ReceiveStanza(CXMPPStanza &Stanza) {
 		Write(iq, &Stanza);
 		return;
 	} else if (Stanza.GetName().Equals("message")) {
-		CXMPPClient *pClient = GetModule()->Client(Stanza.GetAttribute("to"));
-		if (pClient) {
-			pClient->Write(Stanza);
-			return;
-		}
-
-		CXMPPStanza message("message");
-		message.SetAttribute("type", "error");
-		CXMPPStanza& error = message.NewChild("error");
-		error.SetAttribute("type", "cancel");
-		CXMPPStanza& unavailable = error.NewChild("service-unavailable", "urn:ietf:params:xml:ns:xmpp-stanzas");
-
-		Write(message, &Stanza);
+		GetModule()->SendStanza(Stanza);
 		return;
 	} else if (Stanza.GetName().Equals("presence")) {
 		CXMPPStanza presence("presence");

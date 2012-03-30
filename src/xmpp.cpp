@@ -9,6 +9,7 @@
 #include "xmpp.h"
 #include "Client.h"
 #include "Listener.h"
+#include "Stanza.h"
 
 bool CXMPPModule::OnLoad(const CString& sArgs, CString& sMessage) {
 	m_sServerName = sArgs.Token(1);
@@ -111,6 +112,26 @@ bool CXMPPModule::IsTLSAvailible() const {
 #endif
 
 	return false;
+}
+
+void CXMPPModule::SendStanza(CXMPPStanza &Stanza) {
+	CXMPPClient *pClient = Client(Stanza.GetAttribute("to"));
+	if (pClient) {
+		pClient->Write(Stanza);
+		return;
+	}
+
+	pClient = Client(Stanza.GetAttribute("from"));
+	if (pClient) {
+		CXMPPStanza errorStanza(Stanza.GetName());
+		errorStanza.SetAttribute("to", Stanza.GetAttribute("from"));
+		errorStanza.SetAttribute("from", Stanza.GetAttribute("to"));
+		errorStanza.SetAttribute("type", "error");
+		CXMPPStanza& error = errorStanza.NewChild("error");
+		error.SetAttribute("type", "cancel");
+		CXMPPStanza& unavailable = error.NewChild("service-unavailable", "urn:ietf:params:xml:ns:xmpp-stanzas");
+		pClient->Write(errorStanza);
+	}
 }
 
 GLOBALMODULEDEFS(CXMPPModule, "XMPP support for ZNC");

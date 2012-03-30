@@ -9,6 +9,7 @@
 #include <znc/Modules.h>
 
 class CXMPPClient;
+class CXMPPStanza;
 
 class CXMPPModule : public CModule {
 public:
@@ -26,6 +27,8 @@ public:
 
 	CString GetServerName() const { return m_sServerName; }
 	bool IsTLSAvailible() const;
+
+	void SendStanza(CXMPPStanza &Stanza);
 
 protected:
 	vector<CXMPPClient*> m_vClients;

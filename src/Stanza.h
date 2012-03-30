@@ -6,6 +6,9 @@
  * by the Free Software Foundation.
  */
 
+#ifndef _STANZA_H
+#define _STANZA_H
+
 #include <libxml/parser.h>
 
 #include <znc/ZNCString.h>
@@ -60,4 +63,6 @@ protected:
 
 	vector<CXMPPStanza*> m_vChildren;
 };
+
+#endif
 
